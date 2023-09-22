@@ -3,6 +3,7 @@ from django.db import models
 
 
 class User(AbstractUser):
+    """Переопределенная модель пользователя для создания обязательных полей"""
 
     email = models.EmailField(
         'электронная почта',
@@ -37,6 +38,7 @@ class User(AbstractUser):
 
 
 class UserSubscription(models.Model):
+    """Модель подписок пользователей друг на друга."""
 
     user = models.ForeignKey(
         User,

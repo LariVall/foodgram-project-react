@@ -37,12 +37,14 @@ User = get_user_model()
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
+    """Viewset для модели Tag."""
 
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
+    """Viewset для модели Ingredient."""
 
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
@@ -51,6 +53,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class GetUserViewSet(DjoserViewSet):
+    """Viewset для работы с моделью User."""
 
     pagination_class = PageAndLimitPagination  # !!!
     serializer_class = GetUserSerializer
@@ -62,6 +65,7 @@ class GetUserViewSet(DjoserViewSet):
         url_path='subscriptions',
     )
     def subscriptions(self, request) -> Response:
+        """Метод для запроса к эндпоинту subscriptions."""
         queryset = User.objects.filter(followee__user=self.request.user)
         pages = self.paginate_queryset(queryset)
         serializer = SubscriptionsSerializer(
@@ -78,6 +82,7 @@ class GetUserViewSet(DjoserViewSet):
         url_path='subscribe',
     )
     def subscribe(self, request: Request, id: int) -> Response:
+        """Метод для запроса к эндпоинту subscribe."""
         user = self.request.user
         followee = get_object_or_404(User, pk=id)
         if request.method == 'POST':
@@ -113,6 +118,7 @@ class GetUserViewSet(DjoserViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
+    """Viewset для модели Recipe."""
 
     queryset = Recipe.objects.all()
     permission_classes = (AuthorOrAdminOrReadOnly,)  # !!!
@@ -138,6 +144,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_path='shopping_cart',
     )
     def shopping_cart(self, request, pk) -> Response:
+        """Метод для запроса к эндпоинту shopping_cart."""
         user = request.user
         recipe = get_object_or_404(Recipe, id=pk)
         if request.method == 'POST':
@@ -171,6 +178,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_path='favorite',
     )
     def favorite(self, request, pk) -> Response:
+        """Метод для запроса к эндпоинту favorite."""
         recipe = get_object_or_404(Recipe, id=pk)
         user = request.user
         if request.method == 'POST':
@@ -200,6 +208,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_path='download_shopping_cart',
     )
     def download_shopping_cart(self, request) -> HttpResponse:
+        """Метод для запроса к эндпоинту download_shopping_cart."""
         ingredients = (
             RecipeIngredient.objects.filter(
                 recipe__userscarts__user=request.user,

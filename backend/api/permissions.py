@@ -2,6 +2,7 @@ from rest_framework import permissions
 
 
 class AuthorOrAdminOrReadOnly(permissions.BasePermission):
+    """Класс для проверки прав доступа."""
 
     def has_permission(self, request, view) -> bool:
         return (

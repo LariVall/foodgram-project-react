@@ -8,6 +8,9 @@ from recipes.models import Recipe, Tag
 
 
 class RecipeFilter(FilterSet):
+    """Фильтрация рецептов по включению их в избранном пользователя и списке
+    покупок пользователя.
+    """
 
     tags = ModelMultipleChoiceFilter(
         field_name='tags__slug',
@@ -26,17 +29,17 @@ class RecipeFilter(FilterSet):
     def filter_is_favorited(
         self, queryset, name, value,
     ):
-        if value:
-            if self.request.user.is_authenticated:
-                return queryset.filter(favorites__user=self.request.user)
+        """Фильтрация по наличию рецептов в избранном пользователя."""
+        if value and self.request.user.is_authenticated:
+            return queryset.filter(favorites__user=self.request.user)
         else:
             return queryset
 
     def filter_is_in_shopping_cart(
         self, queryset, name, value,
     ):
-        if value:
-            if self.request.user.is_authenticated:
-                return queryset.filter(userscarts__user=self.request.user)
+        """Фильтрация по наличию рецептов в списке покупок пользователя."""
+        if value and self.request.user.is_authenticated:
+            return queryset.filter(userscarts__user=self.request.user)
         else:
             return queryset

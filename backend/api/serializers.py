@@ -5,6 +5,7 @@ from django.core.files.base import ContentFile
 from djoser.serializers import (
     UserCreateSerializer as DjoserUserCreateSerializer,
 )
+from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.fields import SerializerMethodField
@@ -18,6 +19,7 @@ User = get_user_model()
 
 
 class Base64ImageField(serializers.ImageField):
+    """Сериализатор для изображений."""
 
     def to_internal_value(self, data):
         if isinstance(data, str) and data.startswith('data:image'):
@@ -28,6 +30,7 @@ class Base64ImageField(serializers.ImageField):
 
 
 class TagSerializer(serializers.ModelSerializer):
+    """Сериализатор тэгов"""
 
     class Meta:
         model = Tag
@@ -40,6 +43,7 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class IngredientSerializer(serializers.ModelSerializer):
+    """Сериализатор ингредиентов"""
 
     class Meta:
         model = Ingredient
@@ -51,6 +55,7 @@ class IngredientSerializer(serializers.ModelSerializer):
 
 
 class UserCreatorSerializer(DjoserUserCreateSerializer):
+    """Сериализатор создания пользователя."""
 
     email = serializers.EmailField(
         max_length=150,
@@ -94,10 +99,12 @@ class UserCreatorSerializer(DjoserUserCreateSerializer):
 
 
 class GetUserSerializer(serializers.ModelSerializer):
+    """Сериализатор для получения пользователя."""
 
     is_subscribed = serializers.SerializerMethodField()
 
     def get_is_subscribed(self, obj: User) -> bool:
+        """Метод проверки подпиcки пользователя на автора."""
         user = self.context.get('request').user
         if user.is_authenticated:
             return UserSubscription.objects.filter(
@@ -119,6 +126,7 @@ class GetUserSerializer(serializers.ModelSerializer):
 
 
 class RecipePreviewSerializer(serializers.ModelSerializer):
+    """Сериализатор для отображения рецептов в укороченном виде."""
 
     image = Base64ImageField()
 
@@ -133,6 +141,7 @@ class RecipePreviewSerializer(serializers.ModelSerializer):
 
 
 class SubscriptionsSerializer(serializers.ModelSerializer):
+    """Сериализатор для подписок на автора."""
 
     is_subscribed = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
@@ -152,6 +161,7 @@ class SubscriptionsSerializer(serializers.ModelSerializer):
         )
 
     def get_is_subscribed(self, obj) -> bool:
+        """Метод проверки подписки на автора рецептов."""
         user = self.context.get('request').user
         if user.is_authenticated:
             return UserSubscription.objects.filter(
@@ -161,9 +171,11 @@ class SubscriptionsSerializer(serializers.ModelSerializer):
             return False
 
     def get_recipes_count(self, obj) -> int:
+        """Метод получения количества рецептов у автора рецептов."""
         return obj.recipes.count()
 
     def get_recipes(self, obj):
+        """Метод получения всех рецептов автора."""
         request = self.context.get('request')
         limit = int(request.query_params.get('recipes_limit', '5'))
         recipes = obj.recipes.all()[:limit]
@@ -173,9 +185,10 @@ class SubscriptionsSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
+    """Сериализатор для ингредиентов в рецептах."""
 
     id = serializers.PrimaryKeyRelatedField(
-        queryset=Ingredient.objects,
+        queryset=Ingredient.objects.all(),
         source='ingredient.id',
     )
     name = serializers.CharField(
@@ -201,6 +214,7 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
+    """Сериализатор получения рецептов."""
 
     image = serializers.ReadOnlyField(source='image.url')
     author = GetUserSerializer(read_only=True)
@@ -229,6 +243,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         )
 
     def get_is_favorited(self, obj) -> bool:
+        """Метод для проверки наличия рецепта в избранном."""
         user = self.context.get('request').user
         if user.is_authenticated:
             return obj.favorites.filter(user=user).exists()
@@ -236,6 +251,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             return False
 
     def get_is_in_shopping_cart(self, obj) -> bool:
+        """Метод проверки рецепта в списке покупок."""
         user = self.context.get('request').user
         if user.is_authenticated:
             return obj.userscarts.filter(user=user).exists()
@@ -244,11 +260,13 @@ class RecipeSerializer(serializers.ModelSerializer):
 
 
 class PostRecipeSerializer(RecipeSerializer):
+    """Сериализатор для создания или изменения рецептов."""
 
     image = Base64ImageField()
     tags = PrimaryKeyRelatedField(many=True, queryset=Tag.objects.all())
     cooking_time = serializers.IntegerField()
 
+    @transaction.atomic
     def create(self, validated_data) -> Recipe:
         ingredients = validated_data.pop('recipe_ingredients')
         recipe = super().create(validated_data)
@@ -259,7 +277,9 @@ class PostRecipeSerializer(RecipeSerializer):
             )
         return recipe
 
+    @transaction.atomic
     def update(self, instance: Recipe, validated_data) -> Recipe:
+        """Метод обновления рецепта."""
         ingredients = validated_data.pop('recipe_ingredients', None)
         recipe = super().update(instance, validated_data)
         instance.ingredients.clear()
@@ -271,6 +291,7 @@ class PostRecipeSerializer(RecipeSerializer):
         return recipe
 
     def validate_ingredients(self, ingredients):
+        """Метод валидации ингредиентов."""
         unique_ingredient = set()
         for item in ingredients:
             ingredient_id = item.get('ingredient', {}).get('id')

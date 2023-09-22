@@ -1,11 +1,12 @@
 from django.contrib.auth import get_user_model
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
 User = get_user_model()
 
 
 class Ingredient(models.Model):
+    """Модель для ингредиентов в рецепте."""
 
     name = models.CharField(
         'Название ингредиента',
@@ -22,19 +23,19 @@ class Ingredient(models.Model):
         ordering = ['id']
         verbose_name: str = 'ингредиент'
         verbose_name_plural: str = 'ингредиенты'
+        unique_together = ('name', 'measurement_unit')
 
     def __str__(self) -> str:
         return self.name
 
 
 class Tag(models.Model):
+    """Модель тэгов."""
 
     name = models.CharField(
         'Название тега',
         max_length=50,
-        blank=False,
         unique=True,
-        db_index=True,
     )
     color = models.CharField(
         'HEX цвет тега',
@@ -47,7 +48,6 @@ class Tag(models.Model):
         max_length=100,
         blank=False,
         unique=True,
-        db_index=True,
     )
 
     class Meta:
@@ -60,13 +60,13 @@ class Tag(models.Model):
 
 
 class Recipe(models.Model):
+    """Модель рецептов."""
 
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='recipes',
         verbose_name='Автор',
-        db_index=True,
     )
     name = models.CharField(
         'Название рецепта',
@@ -94,9 +94,13 @@ class Recipe(models.Model):
         related_name='tags',
         db_index=True,
     )
-    cooking_time = models.PositiveIntegerField(
+    cooking_time = models.PositiveSmallIntegerField(
         'Время приготовления',
         blank=False,
+        validators=[
+            MaxValueValidator(600),
+            MinValueValidator(1),
+        ],
     )
     pub_date = models.DateTimeField(
         'Дата публикации',
@@ -114,6 +118,7 @@ class Recipe(models.Model):
 
 
 class RecipeIngredient(models.Model):
+    """Модель для количества ингредиентов в рецептах."""
 
     recipe = models.ForeignKey(
         Recipe,
@@ -133,8 +138,11 @@ class RecipeIngredient(models.Model):
         validators=[
             MinValueValidator(
                 1,
-                message='Указано количество ингредиента меньше 1 минуты.',
+                message='Указано количество ингредиента меньше 1',
             ),
+            MaxValueValidator(
+                50,
+                message='Указано количество ингредиента больше 50')
         ],
     )
 
@@ -154,6 +162,7 @@ class RecipeIngredient(models.Model):
 
 
 class Favorite(models.Model):
+    """Модель рецептов в избранном."""
 
     user = models.ForeignKey(
         User,
@@ -185,6 +194,7 @@ class Favorite(models.Model):
 
 
 class UsersCart(models.Model):
+    """Модель рецептов в списке покупок."""
 
     user = models.ForeignKey(
         User,
