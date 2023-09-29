@@ -1,6 +1,12 @@
 from django.contrib.auth import get_user_model
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import (
+    MinValueValidator,
+    MaxValueValidator,
+    RegexValidator
+    )
 from django.db import models
+from django.http import HttpResponse
+from django.db.models import Sum
 
 User = get_user_model()
 
@@ -42,6 +48,12 @@ class Tag(models.Model):
         max_length=7,
         blank=False,
         unique=True,
+        validators=[
+            RegexValidator(
+                '^#([a-fA-F0-9]{6})',
+                message='Поле должно содержать HEX-код выбранного цвета.'
+            )
+        ]
     )
     slug = models.SlugField(
         'Слаг',
@@ -116,6 +128,28 @@ class Recipe(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    def get_detail_recipe(self, user):
+        ingredients = (
+            RecipeIngredient.objects.filter(
+                recipe__userscarts__user=user,
+            )
+            .order_by('ingredient__name')
+            .values(
+                'ingredient__name',
+                'ingredient__measurement_unit',
+            )
+            .annotate(ingredient_value=Sum('amount'))
+        )
+        list_ingredients = ''
+        list_ingredients += '\n'.join(
+            [
+                f"{ingredient['ingredient__name']} "
+                f"({ingredient['ingredient__measurement_unit']}) - "
+                f"{ingredient['ingredient_value']}"
+                for ingredient in ingredients
+            ],
+        )
+        return list_ingredients
 
 class RecipeIngredient(models.Model):
     """Модель для количества ингредиентов в рецептах."""

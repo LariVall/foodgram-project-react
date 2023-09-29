@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -48,14 +47,14 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    filter_backends = (filters.SearchFilter,)  # !!!!
-    search_fields = ('^name',)  # !!!!
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('^name',)
 
 
 class GetUserViewSet(DjoserViewSet):
     """Viewset для работы с моделью User."""
 
-    pagination_class = PageAndLimitPagination  # !!!
+    pagination_class = PageAndLimitPagination
     serializer_class = GetUserSerializer
 
     @action(
@@ -121,10 +120,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     """Viewset для модели Recipe."""
 
     queryset = Recipe.objects.all()
-    permission_classes = (AuthorOrAdminOrReadOnly,)  # !!!
-    pagination_class = PageAndLimitPagination  # !!!
+    permission_classes = (AuthorOrAdminOrReadOnly,)
+    pagination_class = PageAndLimitPagination
     filter_backends = (DjangoFilterBackend, filters.OrderingFilter)
-    filterset_class = RecipeFilter  # !!!
+    filterset_class = RecipeFilter
     ordering = ('-id',)
 
     def perform_create(self, serializer: Serializer) -> None:
@@ -136,23 +135,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
         elif self.request.method == 'GET':
             return RecipeSerializer
 
-    @action(
-        methods=('post', 'delete'),
-        detail=True,
-        permission_classes=(IsAuthenticated,),
-        serializer_class=RecipePreviewSerializer,
-        url_path='shopping_cart',
-    )
-    def shopping_cart(self, request, pk) -> Response:
-        """Метод для запроса к эндпоинту shopping_cart."""
+    def _relations(request, instance, pk):
         user = request.user
         recipe = get_object_or_404(Recipe, id=pk)
         if request.method == 'POST':
-            if not UsersCart.objects.filter(
+            if not instance.objects.filter(
                 user=user,
                 recipe=recipe,
             ).exists():
-                UsersCart.objects.create(user=user, recipe=recipe)
+                instance.objects.create(user=user, recipe=recipe)
                 serializer = RecipePreviewSerializer(
                     recipe,
                     context={'request': request},
@@ -163,12 +154,24 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 )
         else:
             users_cart = get_object_or_404(
-                UsersCart,
+                instance,
                 user=user,
                 recipe=recipe,
             )
             users_cart.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+    @action(
+        methods=('post', 'delete'),
+        detail=True,
+        permission_classes=(IsAuthenticated,),
+        serializer_class=RecipePreviewSerializer,
+        url_path='shopping_cart',
+    )
+    def shopping_cart(self, request, pk) -> Response:
+        """Метод для запроса к эндпоинту shopping_cart."""
+        return self._relations(request, UsersCart, pk)
 
     @action(
         methods=('post', 'delete'),
@@ -179,27 +182,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def favorite(self, request, pk) -> Response:
         """Метод для запроса к эндпоинту favorite."""
-        recipe = get_object_or_404(Recipe, id=pk)
-        user = request.user
-        if request.method == 'POST':
-            if not Favorite.objects.filter(user=user, recipe=recipe).exists():
-                Favorite.objects.create(user=user, recipe=recipe)
-                serializer = RecipePreviewSerializer(
-                    recipe,
-                    context={'request': request},
-                )
-                return Response(
-                    data=serializer.data,
-                    status=status.HTTP_201_CREATED,
-                )
-        else:
-            favorite = get_object_or_404(
-                Favorite,
-                user=user,
-                recipe=recipe,
-            )
-            favorite.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        return self._relations(request, Favorite, pk)
 
     @action(
         methods=['get'],
@@ -209,26 +192,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def download_shopping_cart(self, request) -> HttpResponse:
         """Метод для запроса к эндпоинту download_shopping_cart."""
-        ingredients = (
-            RecipeIngredient.objects.filter(
-                recipe__userscarts__user=request.user,
-            )
-            .order_by('ingredient__name')
-            .values(
-                'ingredient__name',
-                'ingredient__measurement_unit',
-            )
-            .annotate(ingredient_value=Sum('amount'))
-        )
-        list_ingredients = ''
-        list_ingredients += '\n'.join(
-            [
-                f"{ingredient['ingredient__name']} "
-                f"({ingredient['ingredient__measurement_unit']}) - "
-                f"{ingredient['ingredient_value']}"
-                for ingredient in ingredients
-            ],
-        )
+        list_ingredients = Recipe.get_detail_recipe(request.user)
         name = 'shopping_list.txt'
         response = HttpResponse(list_ingredients, content_type='text/plain')
         response['Content-Disposition'] = f'attachment; filename={name}'

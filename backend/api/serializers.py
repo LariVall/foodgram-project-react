@@ -272,9 +272,14 @@ class PostRecipeSerializer(RecipeSerializer):
         recipe = super().create(validated_data)
         for item in ingredients:
             ingredient = item['ingredient']['id']
-            RecipeIngredient.objects.get_or_create(
-                ingredient=ingredient, recipe=recipe, amount=item['amount'],
-            )
+            recipe_ingredient = RecipeIngredient(
+                ingredient=ingredient,
+                recipe=recipe,
+                amount=item['amount']
+                )
+            ingredients.append(recipe_ingredient)
+
+        RecipeIngredient.objects.bulk_create(ingredients)
         return recipe
 
     @transaction.atomic
@@ -284,10 +289,16 @@ class PostRecipeSerializer(RecipeSerializer):
         recipe = super().update(instance, validated_data)
         instance.ingredients.clear()
         for item in ingredients:
-            ingredient = item['ingredient']['id']
-            RecipeIngredient.objects.get_or_create(
-                ingredient=ingredient, recipe=recipe, amount=item['amount'],
-            )
+            ingredient_id = item['ingredient']['id']
+            amount = item['amount']
+            recipe_ingredient = RecipeIngredient(
+                ingredient_id=ingredient_id,
+                recipe=recipe,
+                amount=amount
+                )
+            ingredients.append(recipe_ingredient)
+
+        RecipeIngredient.objects.bulk_create(ingredients)
         return recipe
 
     def validate_ingredients(self, ingredients):
