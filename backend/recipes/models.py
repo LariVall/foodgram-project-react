@@ -128,7 +128,8 @@ class Recipe(models.Model):
     def __str__(self) -> str:
         return self.name
 
-    def get_detail_recipe(self, user):
+    @staticmethod
+    def get_detail_recipe(user):
         ingredients = (
             RecipeIngredient.objects.filter(
                 recipe__userscarts__user=user,
@@ -137,8 +138,7 @@ class Recipe(models.Model):
             .values(
                 'ingredient__name',
                 'ingredient__measurement_unit',
-            )
-            .annotate(ingredient_value=Sum('amount'))
+            ).annotate(ingredient_value=Sum('amount'))
         )
         list_ingredients = ''
         list_ingredients += '\n'.join(

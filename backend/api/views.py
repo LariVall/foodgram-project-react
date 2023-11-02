@@ -5,7 +5,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet as DjoserViewSet
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
@@ -31,6 +31,8 @@ from recipes.models import (
     UsersCart,
 )
 from users.models import UserSubscription
+
+from .mixins import AddDeleteMixin
 
 User = get_user_model()
 
@@ -116,7 +118,7 @@ class GetUserViewSet(DjoserViewSet):
                 return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class RecipeViewSet(viewsets.ModelViewSet):
+class RecipeViewSet(viewsets.ModelViewSet, AddDeleteMixin):
     """Viewset для модели Recipe."""
 
     queryset = Recipe.objects.all()
@@ -126,63 +128,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
     ordering = ('-id',)
 
-    def perform_create(self, serializer: Serializer) -> None:
-        serializer.save(author=self.request.user)
+    # def perform_create(self, serializer: Serializer) -> None:
+    #     serializer.save(author=self.request.user)
 
     def get_serializer_class(self):
-        if self.request.method in ['POST', 'PATCH']:
-            return PostRecipeSerializer
-        elif self.request.method == 'GET':
+        if self.request.method in SAFE_METHODS:
             return RecipeSerializer
-
-    def _relations(request, instance, pk):
-        user = request.user
-        recipe = get_object_or_404(Recipe, id=pk)
-        if request.method == 'POST':
-            if not instance.objects.filter(
-                user=user,
-                recipe=recipe,
-            ).exists():
-                instance.objects.create(user=user, recipe=recipe)
-                serializer = RecipePreviewSerializer(
-                    recipe,
-                    context={'request': request},
-                )
-                return Response(
-                    data=serializer.data,
-                    status=status.HTTP_201_CREATED,
-                )
-        else:
-            users_cart = get_object_or_404(
-                instance,
-                user=user,
-                recipe=recipe,
-            )
-            users_cart.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-    @action(
-        methods=('post', 'delete'),
-        detail=True,
-        permission_classes=(IsAuthenticated,),
-        serializer_class=RecipePreviewSerializer,
-        url_path='shopping_cart',
-    )
-    def shopping_cart(self, request, pk) -> Response:
-        """Метод для запроса к эндпоинту shopping_cart."""
-        return self._relations(request, UsersCart, pk)
-
-    @action(
-        methods=('post', 'delete'),
-        detail=True,
-        serializer_class=RecipePreviewSerializer(),
-        permission_classes=(IsAuthenticated,),
-        url_path='favorite',
-    )
-    def favorite(self, request, pk) -> Response:
-        """Метод для запроса к эндпоинту favorite."""
-        return self._relations(request, Favorite, pk)
+        return PostRecipeSerializer
 
     @action(
         methods=['get'],
@@ -197,3 +149,25 @@ class RecipeViewSet(viewsets.ModelViewSet):
         response = HttpResponse(list_ingredients, content_type='text/plain')
         response['Content-Disposition'] = f'attachment; filename={name}'
         return response
+
+    @action(
+        detail=True,
+        methods=('post', 'delete'),
+        permission_classes=(IsAuthenticated,)
+    )
+    def favorite(self, request, pk):
+        if request.method == 'POST':
+            return self.add_to(Favorite, request.user, pk)
+        return self.delete_from(Favorite, request.user, pk)
+
+    @action(
+        detail=True,
+        methods=('post', 'delete'),
+        permission_classes=(IsAuthenticated,)
+    )
+    def shopping_cart(self, request, pk):
+        if request.method == 'POST':
+            return self.add_to(UsersCart, request.user, pk)
+        return self.delete_from(UsersCart, request.user, pk)
+
+
