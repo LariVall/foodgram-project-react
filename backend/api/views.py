@@ -8,7 +8,6 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.serializers import Serializer
 
 from api.filters import RecipeFilter
 from api.paginations import PageAndLimitPagination
@@ -17,7 +16,6 @@ from api.serializers import (
     GetUserSerializer,
     IngredientSerializer,
     PostRecipeSerializer,
-    RecipePreviewSerializer,
     RecipeSerializer,
     SubscriptionsSerializer,
     TagSerializer,
@@ -26,7 +24,6 @@ from recipes.models import (
     Favorite,
     Ingredient,
     Recipe,
-    RecipeIngredient,
     Tag,
     UsersCart,
 )
@@ -169,5 +166,3 @@ class RecipeViewSet(viewsets.ModelViewSet, AddDeleteMixin):
         if request.method == 'POST':
             return self.add_to(UsersCart, request.user, pk)
         return self.delete_from(UsersCart, request.user, pk)
-
-

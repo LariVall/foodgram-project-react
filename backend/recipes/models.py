@@ -3,9 +3,8 @@ from django.core.validators import (
     MinValueValidator,
     MaxValueValidator,
     RegexValidator
-    )
+)
 from django.db import models
-from django.http import HttpResponse
 from django.db.models import Sum
 
 User = get_user_model()
@@ -150,6 +149,7 @@ class Recipe(models.Model):
             ],
         )
         return list_ingredients
+
 
 class RecipeIngredient(models.Model):
     """Модель для количества ингредиентов в рецептах."""

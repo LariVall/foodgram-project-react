@@ -283,7 +283,6 @@ class PostRecipeSerializer(serializers.ModelSerializer):
             'cooking_time'
         )
 
-
     @staticmethod
     def create_ingredients(recipe, ingredients):
         recipe_ingredients = []
@@ -320,4 +319,3 @@ class PostRecipeSerializer(serializers.ModelSerializer):
         return RecipeSerializer(instance, context={
             'request': self.context.get('request')
         }).data
-
